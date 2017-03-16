@@ -1,0 +1,9 @@
+{
+  "name": "npm-link-quick",
+  "version": "0.0.0",
+  "description": "npm link without installing modules",
+  "main": "index.js",
+  "bin": "index.js",
+  "files": [],
+  "repository": "laggingreflex/npm-link-quick"
+}

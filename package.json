@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "description": "npm link without installing modules",
   "main": "index.js",
-  "bin": "index.js",
+  "bin": {
+    "npm-link-quick": "index.js",
+    "nlq": "index.js"
+  },
   "files": [],
   "repository": "laggingreflex/npm-link-quick"
 }

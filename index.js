@@ -6,34 +6,63 @@ const path = require('path')
 const spawn = require('child_process').spawn
 
 const npm = os.platform() === 'win32' ? 'npm.cmd' : 'npm'
-const cwd = p => path.join(process.cwd(), p)
-cwd.valueOf = process.cwd
+const cwd = p => path.join(process.cwd(), p || '.')
+const tmp = p => path.join(os.tmpdir(), 'npm-link-quick-' + (p || '') + '_' + Number(Date.now()))
 
 const pkg = require(cwd('package.json'))
 
-const pkg_depless = Object.assign({}, pkg, { dependencies: {}, devDependencies: {} })
+if (pkg.dependencies) {
+  pkg.dependencies_npm_quick_link_tmp = pkg.dependencies;
+  delete pkg.dependencies;
+}
+if (pkg.devDependencies) {
+  pkg.devDependencies_npm_quick_link_tmp = pkg.devDependencies;
+  delete pkg.devDependencies;
+}
 
-fs.writeFileSync(cwd('package.json'), JSON.stringify(pkg_depless, null, 2))
+fs.writeFileSync(cwd('package.json'), JSON.stringify(pkg, null, 2))
 
 try {
-  fs.renameSync(cwd('node_modules'), cwd('node_modules-temp'))
+  fs.renameSync(cwd('node_modules'), cwd('node_modules-original'))
 } catch (error) {}
 
 spawn(npm, ['link'], { stdio: 'inherit' }).on('close', () => {
-  try {
-
-    // fs.unlinkSync(cwd('node_modules'))
-    fs.renameSync(cwd('node_modules'), cwd('node_modules-temp_installed'))
-  } catch (error) {}
+  let err = null
 
   try {
-    fs.renameSync(cwd('node_modules-temp'), cwd('node_modules'))
+    fs.unlinkSync(cwd('node_modules'))
+  } catch (error) {
+    fs.renameSync(cwd('node_modules'), cwd('node_modules-remove-me'))
+    const tmpdir = tmp(pkg.name)
+    try {
+      // console.log(tmpdir);
+      fs.renameSync(cwd('node_modules-remove-me'), tmpdir)
+      try {
+        fs.unlinkSync(tmpdir)
+      } catch (error) {
+        err = true
+        console.warn(`Warning: Couldn't remove temporary node_modules dir:`, tmpdir, '\n', error.message, '\n Kindly remove it yourself.');
+      }
+    } catch (error) {
+      err = true
+      console.warn(`Warning: Couldn't remove temporary node_modules dir:`, cwd('node_modules-remove-me'), '\n', error.message, '\n Kindly remove it yourself.');
+    }
+  }
 
-  } catch (error) {}
+  fs.renameSync(cwd('node_modules-original'), cwd('node_modules'))
 
 
-  fs.writeFileSync(cwd('package.json'), JSON.stringify(pkg, null, 2))
+  if (pkg.dependencies_npm_quick_link_tmp) {
+    pkg.dependencies = pkg.dependencies_npm_quick_link_tmp;
+    delete pkg.dependencies_npm_quick_link_tmp;
+  }
+  if (pkg.devDependencies_npm_quick_link_tmp) {
+    pkg.devDependencies = pkg.devDependencies_npm_quick_link_tmp;
+    delete pkg.devDependencies_npm_quick_link_tmp;
+  }
 
+  fs.writeFileSync(cwd('package.json'), JSON.stringify(pkg, null, 2) + '\n')
 
+  console.log('Done!');
 
 })

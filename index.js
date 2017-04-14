@@ -10,15 +10,11 @@ const cwd = p => path.join(process.cwd(), p || '.')
 const tmp = p => path.join(os.tmpdir(), 'npm-link-quick-' + (p || '') + '_' + Number(Date.now()))
 
 const pkg = require(cwd('package.json'))
+const orgPkg = fs.readFileSync(cwd('package.json'), 'utf8');
 
-if (pkg.dependencies) {
-  pkg.dependencies_npm_quick_link_tmp = pkg.dependencies;
-  delete pkg.dependencies;
-}
-if (pkg.devDependencies) {
-  pkg.devDependencies_npm_quick_link_tmp = pkg.devDependencies;
-  delete pkg.devDependencies;
-}
+const keysToRemove = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies', 'scripts']
+
+keysToRemove.forEach(k => modifyPkgJsonKey(pkg, k));
 
 fs.writeFileSync(cwd('package.json'), JSON.stringify(pkg, null, 2))
 
@@ -49,20 +45,21 @@ spawn(npm, ['link'], { stdio: 'inherit' }).on('close', () => {
     }
   }
 
-  fs.renameSync(cwd('node_modules-original'), cwd('node_modules'))
+  try {
+    fs.renameSync(cwd('node_modules-original'), cwd('node_modules'))
+  } catch (error) {}
 
-
-  if (pkg.dependencies_npm_quick_link_tmp) {
-    pkg.dependencies = pkg.dependencies_npm_quick_link_tmp;
-    delete pkg.dependencies_npm_quick_link_tmp;
-  }
-  if (pkg.devDependencies_npm_quick_link_tmp) {
-    pkg.devDependencies = pkg.devDependencies_npm_quick_link_tmp;
-    delete pkg.devDependencies_npm_quick_link_tmp;
-  }
-
-  fs.writeFileSync(cwd('package.json'), JSON.stringify(pkg, null, 2) + '\n')
+  fs.writeFileSync(cwd('package.json'), orgPkg)
 
   console.log('Done!');
 
 })
+
+
+function modifyPkgJsonKey(pkg, key) {
+  let tmp = key + '_npm_quick_link_tmp';
+  if (pkg[key]) {
+    pkg[tmp] = pkg[key];
+    delete pkg[key];
+  }
+}

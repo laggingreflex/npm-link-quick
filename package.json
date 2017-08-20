@@ -8,5 +8,8 @@
     "nlq": "index.js"
   },
   "files": [],
-  "repository": "laggingreflex/npm-link-quick"
+  "repository": "laggingreflex/npm-link-quick",
+  "dependencies": {
+    "fs-extra": "^4.0.1"
+  }
 }

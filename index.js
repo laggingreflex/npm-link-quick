@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const os = require('os')
-const fs = require('fs-extra')
+const fs = require('fs')
 const path = require('path')
 const spawn = require('child_process').spawn
 
@@ -30,7 +30,7 @@ spawn(npm, ['link'], { stdio: 'inherit' }).on('close', () => {
   if (renamedOldNodeModules) {
     let removedTempNodeModules
     try {
-      fs.removeSync(cwd('node_modules'))
+      fs.rmdirSync(cwd('node_modules'))
       removedTempNodeModules = true
     } catch (error) {
       console.error(error)

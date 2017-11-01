@@ -33,20 +33,18 @@ spawn(npm, ['link'], { stdio: 'inherit' }).on('close', () => {
       fs.rmdirSync(cwd('node_modules'))
       removedTempNodeModules = true
     } catch (error) {
-      console.error(error)
-      console.warn(`Warning: Couldn't remove temporary node_modules dir`)
-      console.warn(`Please remove 'node_modules'`)
-      console.warn(`And rename 'node_modules-original' => 'node_modules'`)
+      // // console.error(error.message)
+      // console.warn(`Warning: Couldn't remove temporary node_modules dir.`, error.message)
+      // console.warn(`Please remove 'node_modules'`)
+      // console.warn(`And rename 'node_modules-original' => 'node_modules'`)
     }
 
-    if (removedTempNodeModules) {
-      try {
-        fs.renameSync(cwd('node_modules-original'), cwd('node_modules'))
-      } catch (error) {
-        console.error(error)
-        console.warn(`Warning: Couldn't restore original node_modules dir`)
-        console.warn(`Please rename 'node_modules-original' => 'node_modules'`)
-      }
+    try {
+      fs.renameSync(cwd('node_modules-original'), cwd('node_modules'))
+    } catch (error) {
+      // console.error(error.message)
+      console.warn(`Warning: Couldn't restore original node_modules dir.`, error.message)
+      console.warn(`Please rename 'node_modules-original' => 'node_modules'`)
     }
 
   }
@@ -54,8 +52,8 @@ spawn(npm, ['link'], { stdio: 'inherit' }).on('close', () => {
   try {
     fs.writeFileSync(cwd('package.json'), orgPkg)
   } catch (error) {
-    console.error(error)
-    console.warn(`Warning: Couldn't restore original package.json`)
+    // console.error(error.message)
+    console.warn(`Warning: Couldn't restore original package.json.`, error.message)
     console.warn(`Please restore from git repo if possible`)
   }
 

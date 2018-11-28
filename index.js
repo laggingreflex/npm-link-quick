@@ -1,70 +1,94 @@
 #!/usr/bin/env node
 
-const os = require('os')
-const fs = require('fs')
-const path = require('path')
-const spawn = require('child_process').spawn
+const os = require('os');
+const fs = require('fs');
+const spawnSync = require('child_process').spawnSync;
 
-const npm = os.platform() === 'win32' ? 'npm.cmd' : 'npm'
-const cwd = p => path.join(process.cwd(), p || '.')
-const tmp = p => path.join(os.tmpdir(), 'npm-link-quick-' + (p || '') + '_' + Number(Date.now()))
+const npm = os.platform() === 'win32' ? 'npm.cmd' : 'npm';
 
-const pkg = require(cwd('package.json'))
-const orgPkg = fs.readFileSync(cwd('package.json'), 'utf8')
-
-const keysToRemove = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies', 'scripts']
-
-keysToRemove.forEach(k => modifyPkgJsonKey(pkg, k))
-
-fs.writeFileSync(cwd('package.json'), JSON.stringify(pkg, null, 2))
-
-let renamedOldNodeModules
 try {
-  fs.renameSync(cwd('node_modules'), cwd('node_modules-original'))
-  renamedOldNodeModules = true
-} catch (error) {}
+  main();
+} catch (error) {
+  console.error(error.message);
+  process.exitCode = process.exitCode || error.code || 1;
+}
 
-spawn(npm, ['link'], { stdio: 'inherit' }).on('close', () => {
-  let err = null
-
-  if (renamedOldNodeModules) {
-    let removedTempNodeModules
-    try {
-      fs.rmdirSync(cwd('node_modules'))
-      removedTempNodeModules = true
-    } catch (error) {
-      // // console.error(error.message)
-      // console.warn(`Warning: Couldn't remove temporary node_modules dir.`, error.message)
-      // console.warn(`Please remove 'node_modules'`)
-      // console.warn(`And rename 'node_modules-original' => 'node_modules'`)
-    }
-
-    try {
-      fs.renameSync(cwd('node_modules-original'), cwd('node_modules'))
-    } catch (error) {
-      // console.error(error.message)
-      console.warn(`Warning: Couldn't restore original node_modules dir.`, error.message)
-      console.warn(`Please rename 'node_modules-original' => 'node_modules'`)
-    }
-
-  }
-
+function main() {
+  const restorers = [];
   try {
-    fs.writeFileSync(cwd('package.json'), orgPkg)
-  } catch (error) {
-    // console.error(error.message)
-    console.warn(`Warning: Couldn't restore original package.json.`, error.message)
-    console.warn(`Please restore from git repo if possible`)
+    restorers.push(backup('node_modules'));
+    restorers.push(backup('package-lock.json'));
+    restorers.push(modifyPackageJson());
+    runCmd(npm, ['link'], { stdio: 'inherit' });
+  } finally {
+    restorers.forEach(r => r());
   }
+}
 
-  console.log('Done!')
-})
+function backup(original) {
+  if (fs.existsSync(original)) {
+    const stats = fs.statSync(original);
+    const backup = original + '-backup';
+    fs.renameSync(original, backup);
+    console.log(`Backed up '${original}' -> ${backup}`);
+    return () => {
+      try {
+        if (fs.existsSync(original)) {
+          if (stats.isDirectory()) {
+            fs.rmdirSync(original);
+          } else {
+            fs.unlinkSync(original);
+          }
+          console.log(`Removed ${original}`);
+        }
+        fs.renameSync(backup, original);
+        console.log(`Restored '${backup}' -> ${original}`);
+        return true;
+      } catch (error) {
+        console.error(`Couldn't restore '${backup}' -> ${original}. ${error.message}`);
+        return false;
+      }
+    }
+  } else {
+    return () => {};
+  }
+}
 
+function getPackageJson(keysToRemove = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies', 'scripts']) {
+  const string = fs.readFileSync('package.json', 'utf8');
+  const json = JSON.parse(string);
+  const sansDependencies = {}
+  for (const key in json) {
+    if (keysToRemove.includes(key)) continue;
+    sansDependencies[key] = json[key];
+  }
+  return { json, sansDependencies, string };
+}
 
-function modifyPkgJsonKey(pkg, key) {
-  let tmp = key + '_npm_quick_link_tmp'
-  if (pkg[key]) {
-    pkg[tmp] = pkg[key]
-    delete pkg[key]
+function modifyPackageJson() {
+  const packageJson = getPackageJson();
+  const restore = backup('package.json');
+  writePackageJson(packageJson.sansDependencies);
+  console.log(`Modified 'package.json'`);
+  return restore;
+}
+
+function writePackageJson(packageJson, filename = 'package.json', { suffix = '\n', spaces = 2 } = {}) {
+  if (typeof packageJson !== 'string') {
+    packageJson = JSON.stringify(packageJson, null, spaces) + suffix;
+  }
+  fs.writeFileSync(filename, packageJson);
+}
+
+function runCmd(cmd, args, opts) {
+  console.log('Running:', cmd, ...args);
+  const { status } = spawnSync(cmd, args, { stdio: 'inherit', ...opts });
+  if (status) {
+    console.error('Failed!', cmd, ...args);
+    process.exitCode = status;
+    return false;
+  } else {
+    console.log('Success!', cmd, ...args);
+    return true;
   }
 }

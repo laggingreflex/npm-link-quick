@@ -7,6 +7,5 @@
     "npm-link-quick": "index.js",
     "nlq": "index.js"
   },
-  "files": [],
   "repository": "laggingreflex/npm-link-quick"
 }

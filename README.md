@@ -1,3 +1,5 @@
+**DEPRECATED: Please use [npm-link-better](https://github.com/laggingreflex/npm-link-better)**
+
 # npm-link-quick
 
 [`npm link`][1] command tries to install dependencies. This makes sure it doesn't.
